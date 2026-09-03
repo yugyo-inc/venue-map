@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1F296A">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>Edit Venue Maps · Colive Fukuoka 2026</title>
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <link rel="icon" href="../favicon.ico" sizes="32x32">
+  <link rel="icon" type="image/png" href="../favicon.png">
+  <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body data-view="guest" data-default-date="sep30" data-editor="true">
+  <section class="login-gate" id="login-gate" aria-labelledby="login-title">
+    <form class="login-card" id="login-form">
+      <div class="login-brand"><img src="../assets/colive-fukuoka-mark.png" alt="Colive Fukuoka"><div><p class="login-kicker">AUTHORIZED EDITOR</p><p class="brand-venue" style="color:#667085">Venue Map Operations</p></div></div>
+      <h1 id="login-title">EDIT ACCESS</h1>
+      <p class="login-lead">Enter the editor ID and password supplied by the operations team.</p>
+      <label class="login-field">Editor ID<input id="login-id" name="username" type="text" autocomplete="username" required></label>
+      <label class="login-field">Password<input id="login-password" name="password" type="password" autocomplete="current-password" required></label>
+      <button class="login-submit" type="submit">Open editor</button>
+      <p class="login-error" id="login-error" role="alert"></p>
+      <p class="login-foot">This HTML login prevents casual access. Enable the supplied server authentication configuration before publishing the Edit URL.</p>
+    </form>
+  </section>
+
+  <div id="editor-app" hidden>
+    <div class="mode-rail" aria-label="Editor actions">
+      <div class="mode-rail-left">
+        <span class="mode-label">EDIT VIEW</span>
+        <button class="rail-button is-selected" type="button" data-view-switch="guest" aria-pressed="true">Guest Map</button>
+        <button class="rail-button" type="button" data-view-switch="staff" aria-pressed="false">Staff Map</button>
+        <span class="save-indicator" id="save-indicator">Draft ready</span>
+      </div>
+      <div class="mode-rail-actions">
+        <button class="rail-button is-add" id="add-map-item" type="button">Add map item</button>
+        <button class="rail-button" id="save-draft" type="button">Save draft</button>
+        <button class="rail-button" id="auto-arrange" type="button">Auto-arrange labels</button>
+        <button class="rail-button" id="preview-public" type="button">Preview Public</button>
+        <button class="rail-button is-primary" id="confirm-version" type="button">Confirm version</button>
+        <button class="rail-button" id="download-pptx" type="button">Download PPTX</button>
+        <button class="rail-button" id="sign-out" type="button">Sign out</button>
+      </div>
+    </div>
+
+    <header class="site-header">
+      <div class="brand-row">
+        <div class="brand-lockup">
+          <img class="brand-mark" src="../assets/colive-fukuoka-mark.png" alt="Colive Fukuoka">
+          <div><p class="brand-kicker">Colive Fukuoka 2026 · Operations Tool</p><p class="brand-venue">THE LUIGANS Spa & Resort · Position & Publication Editor</p></div>
+        </div>
+        <nav class="view-switch" aria-label="Map actions">
+          <button class="print-button" id="print-map" type="button">Print</button>
+        </nav>
+      </div>
+      <div class="title-row">
+        <div><p class="eyebrow">INTERNAL POSITION CALIBRATION</p><h1 id="audience-title">GUEST MAP</h1></div>
+        <p class="theme-line">Drag pins into place. Labels move automatically to preserve legibility.</p>
+      </div>
+    </header>
+    <nav class="date-nav" aria-label="Event date">
+      <div class="date-tabs" role="tablist">
+        <button class="date-tab" role="tab" data-date="sep30">SEP 30<span>WORLD NOMAD CONFERENCE + PARTY</span></button>
+        <button class="date-tab" role="tab" data-date="oct1">OCT 01<span>IKIGAI ACADEMY · DAY 1</span></button>
+        <button class="date-tab" role="tab" data-date="oct2">OCT 02<span>IKIGAI ACADEMY · DAY 2</span></button>
+      </div>
+    </nav>
+    <main class="workspace">
+      <section class="map-card" aria-labelledby="map-title">
+        <div class="map-heading">
+          <div><span class="date-stamp" id="date-stamp"></span><h2 id="map-title"></h2><p id="map-subtitle"></p></div>
+          <div class="map-actions">
+            <div class="editor-controls" aria-label="Position controls">
+              <button class="editor-button is-primary" id="edit-toggle" type="button">Finish adjusting</button>
+              <button class="editor-button" id="flip-label" type="button" disabled>Prefer other side</button>
+              <button class="editor-button is-danger" id="delete-item" type="button" disabled>Delete added item</button>
+              <button class="editor-button" id="reset-date" type="button">Reset this date</button>
+            </div>
+            <div class="zoom-controls" aria-label="Map zoom controls">
+              <button class="icon-button" id="zoom-out" type="button" aria-label="Zoom out">−</button>
+              <span class="zoom-status" id="zoom-status" aria-live="polite">100%</span>
+              <button class="icon-button" id="zoom-in" type="button" aria-label="Zoom in">+</button>
+              <button class="icon-button" id="zoom-reset" type="button" aria-label="Reset zoom">↺</button>
+            </div>
+          </div>
+        </div>
+        <div class="editor-strip" id="editor-strip" role="status" aria-live="polite">
+          <span class="editor-badge">EDIT MODE</span>
+          <p><strong id="editor-selection">Drag a numbered pin to adjust its position.</strong><span>Arrow keys: fine adjustment · Shift + arrow: larger step</span></p>
+          <output id="editor-coordinates">No pin selected</output>
+        </div>
+        <div class="map-frame" id="map-frame">
+          <div class="map-stage" id="map-stage">
+            <img class="floor-map" id="floor-map" src="../assets/luigans-floor-map.png" alt="First-floor plan of THE LUIGANS Spa & Resort">
+            <svg class="route-layer" viewBox="0 0 2046 1447" aria-hidden="true">
+              <defs><marker id="route-arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#EB6100" opacity=".3"/></marker></defs>
+              <path class="route-halo" id="route-halo"></path>
+              <path class="route-line" id="route-path" marker-end="url(#route-arrow)"></path>
+            </svg>
+            <div class="pin-layer" id="pin-layer"></div>
+          </div>
+        </div>
+        <div class="legend" aria-label="Map legend"><span><i class="l-route"></i>Guide sequence</span><span><i class="l-destination"></i>Programme</span><span><i></i>Service</span><span><i class="l-staff"></i>Staff / green room</span></div>
+      </section>
+      <aside class="detail-panel">
+        <div class="notice"><p class="notice-label">CURRENT OPERATION NOTE</p><p id="notice-text"></p></div>
+        <div class="detail-heading"><h3>SELECT A PIN</h3><span>Then drag or nudge</span></div>
+        <ol class="destination-list" id="destination-list"></ol>
+      </aside>
+    </main>
+    <p class="source-row"><strong>Draft workflow:</strong> “Confirm version” freezes the current map in this browser. Download the public data file and upload it with the HTML package so visitors see the confirmed version.</p>
+  </div>
+
+  <dialog class="publish-dialog item-dialog" id="add-item-dialog">
+    <form class="dialog-body" id="add-item-form">
+      <h2>ADD MAP ITEM</h2>
+      <p id="add-item-context">Add a new pin to the current map.</p>
+      <div class="item-form-grid">
+        <label class="dialog-field dialog-field-wide">Item name
+          <input id="item-name" name="label" type="text" maxlength="70" placeholder="e.g. Smoking Area" required>
+        </label>
+        <label class="dialog-field dialog-field-wide">Supporting detail
+          <input name="detail" type="text" maxlength="120" placeholder="e.g. Designated smoking area">
+        </label>
+        <label class="dialog-field">Category
+          <select name="kind">
+            <option value="service">Service / facility</option>
+            <option value="destination">Programme</option>
+            <option value="access">Entrance / access</option>
+            <option value="staff">Staff / green room</option>
+            <option value="muted">Reference only</option>
+          </select>
+        </label>
+        <label class="dialog-field">Add to
+          <select name="scope">
+            <option value="current">Current map and date</option>
+            <option value="both-date">Guest + Staff for this date</option>
+            <option value="audience-all">Current map for all 3 dates</option>
+            <option value="all">Guest + Staff for all 3 dates</option>
+          </select>
+        </label>
+        <label class="dialog-check dialog-field-wide"><input name="tbc" type="checkbox"> Mark as TBC</label>
+      </div>
+      <p class="dialog-step">The new pin appears near the centre of the map. Drag it to the exact venue position; its callout will reflow automatically.</p>
+      <div class="dialog-actions">
+        <button class="rail-button" id="cancel-add-item" type="button">Cancel</button>
+        <button class="rail-button is-add" type="submit">Add item</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="publish-dialog" id="publish-dialog">
+    <div class="dialog-body">
+      <h2>VERSION CONFIRMED</h2>
+      <p>The current Guest and Staff positions are locked as the confirmed browser snapshot.</p>
+      <p class="dialog-step"><strong>For the Public URL:</strong> download <code>map-data.js</code> and replace <code>/assets/map-data.js</code> on the server. Staff data is excluded from this file.</p>
+      <div class="dialog-actions">
+        <button class="rail-button" id="close-dialog" type="button">Close</button>
+        <button class="rail-button" id="download-public-data" type="button">Download public data</button>
+        <button class="rail-button is-primary" id="dialog-download-pptx" type="button">Download PPTX</button>
+      </div>
+    </div>
+  </dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="map-data.js"></script>
+  <script src="vendor/pptxgen.bundle.js"></script>
+  <script src="auth-config.js"></script>
+  <script src="editor.js"></script>
+</body>
+</html>

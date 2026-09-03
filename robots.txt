@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /$
+Allow: /assets/
+Disallow: /edit/
+
+Sitemap: https://venue-map.colivefukuoka.com/sitemap.xml
