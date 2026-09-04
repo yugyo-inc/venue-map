@@ -70,7 +70,7 @@ window.VENUE_MAP_DATA = {
       date: "30 SEP · WED",
       title: "STAFF MAP · DAY 0",
       subtitle: "World Nomad Conference and Opening Party operations",
-      notice: "Operational priority: close the summit at 17:00 and guide cruise guests to the pier without delay.",
+      notice: "Operational priority: close the conference at 17:00 and guide cruise guests to the pier without delay.",
       route: [[676,666],[634,719],[400,520],[105,630],[1250,1035]],
       pins: [
         { key:"entrance", x:676, y:666, label:"Conference Entrance", detail:"Primary guest flow", kind:"access", side:"right" },

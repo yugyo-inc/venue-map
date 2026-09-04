@@ -4,7 +4,11 @@
   const AUTH_KEY = "colive-fukuoka:venue-map-auth:v2";
   const DRAFT_KEY = "colive-fukuoka:venue-map-draft:v2";
   const CUSTOM_ITEMS_KEY = "colive-fukuoka:venue-map-custom-items:v2";
+  const ORDER_KEY = "colive-fukuoka:venue-map-order:v2";
   const PUBLISHED_KEY = "colive-fukuoka:venue-map-published:v2";
+  const VIEWS = ["guest", "staff"];
+  const DATES = ["sep30", "oct1", "oct2"];
+  const EDITABLE_FIELDS = ["label", "detail", "kind"];
   const data = window.VENUE_MAP_DATA;
   const body = document.body;
   const loginGate = document.getElementById("login-gate");
@@ -28,6 +32,17 @@
   const editToggle = document.getElementById("edit-toggle");
   const flipLabel = document.getElementById("flip-label");
   const deleteItem = document.getElementById("delete-item");
+  const editItemButton = document.getElementById("edit-item");
+  const restoreItems = document.getElementById("restore-items");
+  const confirmDialog = document.getElementById("confirm-dialog");
+  const confirmTitle = document.getElementById("confirm-title");
+  const confirmText = document.getElementById("confirm-text");
+  const confirmScope = document.getElementById("confirm-scope");
+  const confirmAccept = document.getElementById("confirm-accept");
+  const itemDialogTitle = document.getElementById("item-dialog-title");
+  const itemScopeField = document.getElementById("item-scope-field");
+  const itemSubmit = document.getElementById("item-submit");
+  const itemStep = document.getElementById("item-step");
   const editorSelection = document.getElementById("editor-selection");
   const editorCoordinates = document.getElementById("editor-coordinates");
   const audienceTitle = document.getElementById("audience-title");
@@ -43,6 +58,10 @@
   let zoom = 1;
   let overrides = loadDraft();
   let customItems = loadCustomItems();
+  let orderOverrides = loadOrder();
+  let itemDialogMode = "add";
+  let editingKey = "";
+  let pendingConfirm = null;
   let arrangeFrame = 0;
   let toastTimer = 0;
   let failedAttempts = 0;
@@ -127,10 +146,19 @@
     }
   }
 
+  function loadOrder() {
+    try {
+      return JSON.parse(window.localStorage.getItem(ORDER_KEY) || "{}");
+    } catch (error) {
+      return {};
+    }
+  }
+
   function persistDraft(message = "Draft saved") {
     try {
       window.localStorage.setItem(DRAFT_KEY, JSON.stringify(overrides));
       window.localStorage.setItem(CUSTOM_ITEMS_KEY, JSON.stringify(customItems));
+      window.localStorage.setItem(ORDER_KEY, JSON.stringify(orderOverrides));
       const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       saveIndicator.textContent = `${message} · ${now}`;
       saveIndicator.classList.add("is-saved");
@@ -159,10 +187,6 @@
     return customItems[viewName]?.[dateName] || [];
   }
 
-  function currentPins() {
-    return [...currentPage().pins, ...customScope()];
-  }
-
   function overrideScope(viewName = view, dateName = activeDate, create = false) {
     if (create) {
       overrides[viewName] ||= {};
@@ -171,8 +195,81 @@
     return overrides[viewName]?.[dateName] || {};
   }
 
+  function orderScope(viewName = view, dateName = activeDate) {
+    return orderOverrides[viewName]?.[dateName] || [];
+  }
+
+  function setOrderScope(viewName, dateName, keys) {
+    orderOverrides[viewName] ||= {};
+    orderOverrides[viewName][dateName] = keys;
+  }
+
+  function basePins(viewName = view, dateName = activeDate) {
+    return [...data[viewName][dateName].pins, ...customScope(viewName, dateName)];
+  }
+
+  function applyContentOverride(pin, adjustment) {
+    const merged = { ...pin };
+    let edited = false;
+    EDITABLE_FIELDS.forEach((field) => {
+      if (typeof adjustment[field] !== "string") return;
+      if (adjustment[field] !== (pin[field] ?? "")) edited = true;
+      merged[field] = adjustment[field];
+    });
+    if (typeof adjustment.tbc === "boolean") {
+      if (adjustment.tbc !== Boolean(pin.tbc)) edited = true;
+      if (adjustment.tbc) merged.tbc = true;
+      else delete merged.tbc;
+    }
+    if (Number.isFinite(adjustment.x)) merged.x = adjustment.x;
+    if (Number.isFinite(adjustment.y)) merged.y = adjustment.y;
+    if (adjustment.side) merged.side = adjustment.side;
+    if (edited && !pin.custom) merged.edited = true;
+    if (adjustment.deleted) merged.deleted = true;
+    return merged;
+  }
+
+  function effectivePins(viewName = view, dateName = activeDate) {
+    const scope = overrideScope(viewName, dateName);
+    const pins = basePins(viewName, dateName)
+      .map((pin) => applyContentOverride(pin, scope[pin.key] || {}))
+      .filter((pin) => !pin.deleted);
+    const order = orderScope(viewName, dateName);
+    if (!order.length) return pins;
+    const rank = new Map(order.map((key, index) => [key, index]));
+    const ranked = pins.filter((pin) => rank.has(pin.key)).sort((a, b) => rank.get(a.key) - rank.get(b.key));
+    const unranked = pins.filter((pin) => !rank.has(pin.key));
+    return [...ranked, ...unranked];
+  }
+
+  function removedBasePins(viewName = view, dateName = activeDate) {
+    const scope = overrideScope(viewName, dateName);
+    return data[viewName][dateName].pins.filter((pin) => scope[pin.key]?.deleted);
+  }
+
+  function currentPins() {
+    return effectivePins();
+  }
+
   function getPin(key) {
     return currentPins().find((pin) => pin.key === key);
+  }
+
+  function effectiveRoute(viewName = view, dateName = activeDate) {
+    const original = data[viewName][dateName];
+    const scope = overrideScope(viewName, dateName);
+    const points = [];
+    original.route.forEach((point) => {
+      const linkedPin = original.pins.find((pin) => !pin.listOnly && pin.x === point[0] && pin.y === point[1]);
+      if (!linkedPin) {
+        points.push(point);
+        return;
+      }
+      const adjustment = scope[linkedPin.key] || {};
+      if (adjustment.deleted) return;
+      points.push([Number.isFinite(adjustment.x) ? adjustment.x : linkedPin.x, Number.isFinite(adjustment.y) ? adjustment.y : linkedPin.y]);
+    });
+    return points;
   }
 
   function resolvedPin(pin, viewName = view, dateName = activeDate) {
@@ -195,17 +292,8 @@
     return points.map((point, index) => `${index ? "L" : "M"} ${point[0]} ${point[1]}`).join(" ");
   }
 
-  function routePoints(page) {
-    return page.route.map((point) => {
-      const linkedPin = page.pins.find((pin) => !pin.listOnly && pin.x === point[0] && pin.y === point[1]);
-      if (!linkedPin) return point;
-      const position = resolvedPin(linkedPin);
-      return [position.x, position.y];
-    });
-  }
-
   function renderRoute() {
-    const route = pathFrom(routePoints(currentPage()));
+    const route = pathFrom(effectiveRoute());
     routeHalo.setAttribute("d", route);
     routePath.setAttribute("d", route);
   }
@@ -265,10 +353,12 @@
     const pin = getPin(selectedKey);
     const canAdjust = Boolean(pin && !pin.listOnly);
     flipLabel.disabled = !canAdjust;
-    deleteItem.disabled = !pin?.custom;
+    deleteItem.disabled = !pin;
+    editItemButton.disabled = !pin;
+    restoreItems.disabled = removedBasePins().length === 0;
     if (message) editorSelection.textContent = message;
-    else if (canAdjust) editorSelection.textContent = pin.label;
-    else editorSelection.textContent = editing ? "Drag a numbered pin to adjust its position." : "Position editing is paused.";
+    else if (pin) editorSelection.textContent = pin.label;
+    else editorSelection.textContent = editing ? "Select an item to drag, edit, reorder or delete it." : "Position editing is paused.";
     if (canAdjust) {
       const position = resolvedPin(pin);
       editorCoordinates.textContent = `x ${Math.round(position.x)} · y ${Math.round(position.y)} · preference ${position.side}`;
@@ -349,9 +439,24 @@
         <span class="label-leader" aria-hidden="true"></span><span class="pin-dot"><span>${numbers.get(pin.key)}</span></span><span class="pin-label"><strong>${esc(pin.label)}</strong><small>${esc(pin.detail)}</small></span>
       </button>`;
     }).join("");
-    destinationList.innerHTML = pagePins.map((pin) => `<li><button class="destination-card ${pin.tbc ? "is-tbc" : ""} ${pin.key === selectedKey ? "is-active" : ""}" data-key="${esc(pin.key)}"><span class="destination-index">${pin.listOnly ? "—" : numbers.get(pin.key)}</span><span><strong>${esc(pin.label)}</strong><small>${esc(pin.detail)}</small></span>${pin.custom ? '<span class="custom-chip">ADDED</span>' : pin.tbc ? '<span class="tbc-chip">TBC</span>' : ""}</button></li>`).join("");
+    destinationList.innerHTML = pagePins.map((pin, index) => {
+      const chip = pin.custom ? '<span class="custom-chip">ADDED</span>' : pin.edited ? '<span class="edited-chip">EDITED</span>' : pin.tbc ? '<span class="tbc-chip">TBC</span>' : "";
+      return `<li class="destination-row"><button class="destination-card ${pin.tbc ? "is-tbc" : ""} ${pin.key === selectedKey ? "is-active" : ""}" data-key="${esc(pin.key)}"><span class="destination-index">${pin.listOnly ? "—" : numbers.get(pin.key)}</span><span><strong>${esc(pin.label)}</strong><small>${esc(pin.detail)}</small></span>${chip}</button>
+        <div class="item-tools" data-item="${esc(pin.key)}">
+          <div class="item-tools-row"><button class="item-tool" type="button" data-act="up" title="Move up" aria-label="Move ${esc(pin.label)} up" ${index === 0 ? "disabled" : ""}>▲</button><button class="item-tool" type="button" data-act="down" title="Move down" aria-label="Move ${esc(pin.label)} down" ${index === pagePins.length - 1 ? "disabled" : ""}>▼</button></div>
+          <div class="item-tools-row"><button class="item-tool is-edit" type="button" data-act="edit" title="Edit item" aria-label="Edit ${esc(pin.label)}">EDIT</button><button class="item-tool is-delete" type="button" data-act="delete" title="Delete item" aria-label="Delete ${esc(pin.label)}">✕</button></div>
+        </div></li>`;
+    }).join("");
     bindPinEvents();
     destinationList.querySelectorAll(".destination-card").forEach((card) => card.addEventListener("click", () => selectDestination(card.dataset.key)));
+    destinationList.querySelectorAll(".item-tools [data-act]").forEach((button) => button.addEventListener("click", () => {
+      const key = button.closest(".item-tools").dataset.item;
+      const action = button.dataset.act;
+      if (action === "up") moveItem(key, -1);
+      else if (action === "down") moveItem(key, 1);
+      else if (action === "edit") openEditItemDialog(key);
+      else if (action === "delete") requestDeleteItem(key);
+    }));
     updateEditorSelection();
     scheduleArrange();
   }
@@ -406,19 +511,168 @@
   }
 
   function resetCurrentDate() {
-    if (!window.confirm(`Reset all saved ${currentPage().date} ${view} adjustments?`)) return;
-    if (overrides[view]) delete overrides[view][activeDate];
-    if (customItems[view]) delete customItems[view][activeDate];
-    persistDraft("Date reset");
-    selectedKey = "";
-    render();
+    askConfirm({
+      title: "RESET THIS DATE",
+      text: `Reset all saved ${currentPage().date} ${view === "staff" ? "Staff" : "Guest"} adjustments? Positions, edits, order changes, removed items and added items for this date will return to the original data.`,
+      accept: "Reset date",
+      onAccept: () => {
+        if (overrides[view]) delete overrides[view][activeDate];
+        if (customItems[view]) delete customItems[view][activeDate];
+        if (orderOverrides[view]) delete orderOverrides[view][activeDate];
+        persistDraft("Date reset");
+        selectedKey = "";
+        render();
+        showToast("Date reset to the original data.");
+      }
+    });
+  }
+
+  function askConfirm({ title, text, accept = "Confirm", scopeOptions = null, onAccept }) {
+    confirmTitle.textContent = title;
+    confirmText.textContent = text;
+    confirmAccept.textContent = accept;
+    confirmScope.hidden = !scopeOptions;
+    if (scopeOptions) {
+      confirmScope.innerHTML = scopeOptions.map((option, index) => `<label class="dialog-radio"><input type="radio" name="confirm-scope" value="${esc(option.value)}" ${index === 0 ? "checked" : ""}> ${esc(option.label)}</label>`).join("");
+    } else confirmScope.innerHTML = "";
+    pendingConfirm = onAccept;
+    confirmDialog.showModal();
+  }
+
+  function confirmScopeValue() {
+    return confirmScope.querySelector("input:checked")?.value || "";
+  }
+
+  function setItemDialogMode(mode) {
+    itemDialogMode = mode;
+    const isEdit = mode === "edit";
+    itemDialogTitle.textContent = isEdit ? "EDIT MAP ITEM" : "ADD MAP ITEM";
+    itemSubmit.textContent = isEdit ? "Save changes" : "Add item";
+    itemScopeField.hidden = isEdit;
+    itemStep.textContent = isEdit
+      ? "Changes apply to this map and date. Position is kept; drag the pin if it needs to move."
+      : "The new pin appears near the centre of the map. Drag it to the exact venue position; its callout will reflow automatically.";
   }
 
   function openAddItemDialog() {
     addItemForm.reset();
+    editingKey = "";
+    setItemDialogMode("add");
     addItemContext.textContent = `Adding to ${view === "staff" ? "Staff Map" : "Guest Map"} · ${currentPage().date}. Choose a wider scope below if the same item applies elsewhere.`;
     addItemDialog.showModal();
     window.setTimeout(() => document.getElementById("item-name").focus(), 0);
+  }
+
+  function openEditItemDialog(key) {
+    const pin = getPin(key);
+    if (!pin) return;
+    selectDestination(key);
+    addItemForm.reset();
+    editingKey = key;
+    setItemDialogMode("edit");
+    addItemForm.elements.label.value = pin.label || "";
+    addItemForm.elements.detail.value = pin.detail || "";
+    addItemForm.elements.kind.value = pin.kind || "service";
+    addItemForm.elements.tbc.checked = Boolean(pin.tbc);
+    addItemContext.textContent = `Editing “${pin.label}” on ${view === "staff" ? "Staff Map" : "Guest Map"} · ${currentPage().date}.${pin.custom ? "" : " The original data stays untouched; use Reset this date to undo."}`;
+    addItemDialog.showModal();
+    window.setTimeout(() => document.getElementById("item-name").focus(), 0);
+  }
+
+  function saveItemEdit(formData) {
+    const pin = getPin(editingKey);
+    if (!pin) return;
+    const label = String(formData.get("label") || "").trim();
+    if (!label) return;
+    const detail = String(formData.get("detail") || "").trim() || "Location detail to be confirmed";
+    const kind = String(formData.get("kind") || pin.kind || "service");
+    const tbc = Boolean(formData.get("tbc"));
+    setPinOverride(editingKey, { label, detail, kind, tbc }, false);
+    persistDraft("Item updated");
+    addItemDialog.close();
+    selectedKey = editingKey;
+    render();
+    showToast(`${label} updated.`);
+  }
+
+  function moveItem(key, delta) {
+    const pins = currentPins();
+    const index = pins.findIndex((pin) => pin.key === key);
+    const target = index + delta;
+    if (index < 0 || target < 0 || target >= pins.length) return;
+    const keys = pins.map((pin) => pin.key);
+    [keys[index], keys[target]] = [keys[target], keys[index]];
+    setOrderScope(view, activeDate, keys);
+    selectedKey = key;
+    markDirty();
+    persistDraft("Order saved");
+    render();
+    destinationList.querySelector(`[data-key="${selectorKey(key)}"]`)?.scrollIntoView({ block: "nearest" });
+  }
+
+  function requestDeleteItem(key) {
+    const pin = getPin(key);
+    if (!pin) return;
+    selectDestination(key);
+    if (pin.custom) {
+      let occurrences = 0;
+      VIEWS.forEach((viewName) => DATES.forEach((dateName) => {
+        occurrences += customScope(viewName, dateName).filter((item) => item.key === key).length;
+      }));
+      askConfirm({
+        title: "DELETE ADDED ITEM",
+        text: `Delete “${pin.label}”${occurrences > 1 ? ` from all ${occurrences} maps where it was added` : ""}? This cannot be undone.`,
+        accept: "Delete item",
+        onAccept: () => deleteItemNow(key, false)
+      });
+      return;
+    }
+    const otherDates = DATES.filter((dateName) => dateName !== activeDate && data[view][dateName].pins.some((item) => item.key === key));
+    askConfirm({
+      title: "REMOVE ITEM",
+      text: `Remove “${pin.label}” from the ${view === "staff" ? "Staff" : "Guest"} Map? It will disappear from the map, the list, the PPTX and the published data. Use “Restore removed” or “Reset this date” to bring it back.`,
+      accept: "Remove item",
+      scopeOptions: otherDates.length ? [
+        { value: "date", label: `${currentPage().date} only` },
+        { value: "all", label: `All dates of the ${view === "staff" ? "Staff" : "Guest"} Map where it appears (${otherDates.length + 1})` }
+      ] : null,
+      onAccept: () => deleteItemNow(key, confirmScopeValue() === "all")
+    });
+  }
+
+  function deleteItemNow(key, allDates) {
+    const pin = getPin(key);
+    if (!pin) return;
+    const deletedLabel = pin.label;
+    if (pin.custom) {
+      VIEWS.forEach((viewName) => DATES.forEach((dateName) => {
+        if (customItems[viewName]?.[dateName]) customItems[viewName][dateName] = customItems[viewName][dateName].filter((item) => item.key !== key);
+        if (overrides[viewName]?.[dateName]) delete overrides[viewName][dateName][key];
+        if (orderOverrides[viewName]?.[dateName]) orderOverrides[viewName][dateName] = orderOverrides[viewName][dateName].filter((item) => item !== key);
+      }));
+    } else {
+      (allDates ? DATES : [activeDate]).forEach((dateName) => {
+        if (!data[view][dateName].pins.some((item) => item.key === key)) return;
+        const scope = overrideScope(view, dateName, true);
+        scope[key] = { ...(scope[key] || {}), deleted: true };
+      });
+    }
+    selectedKey = "";
+    markDirty();
+    persistDraft("Item deleted");
+    render();
+    showToast(`${deletedLabel} ${pin.custom ? "deleted" : "removed"}.`);
+  }
+
+  function restoreRemovedItems() {
+    const removed = removedBasePins();
+    if (!removed.length) return;
+    const scope = overrideScope(view, activeDate, true);
+    removed.forEach((pin) => { delete scope[pin.key].deleted; });
+    markDirty();
+    persistDraft("Items restored");
+    render();
+    showToast(`${removed.length} item${removed.length > 1 ? "s" : ""} restored.`);
   }
 
   function viewportMapPosition() {
@@ -443,6 +697,10 @@
   function addCustomMapItem(event) {
     event.preventDefault();
     const formData = new FormData(addItemForm);
+    if (itemDialogMode === "edit") {
+      saveItemEdit(formData);
+      return;
+    }
     const label = String(formData.get("label") || "").trim();
     if (!label) return;
     const detail = String(formData.get("detail") || "").trim() || "Location detail to be confirmed";
@@ -462,49 +720,17 @@
     showToast(`${label} added. Drag its pin to the exact position.`);
   }
 
-  function deleteSelectedCustomItem() {
-    const pin = getPin(selectedKey);
-    if (!pin?.custom) return;
-    let occurrences = 0;
-    ["guest", "staff"].forEach((viewName) => {
-      ["sep30", "oct1", "oct2"].forEach((dateName) => {
-        occurrences += customScope(viewName, dateName).filter((item) => item.key === selectedKey).length;
-      });
-    });
-    const scopeCopy = occurrences > 1 ? ` from all ${occurrences} maps where it was added` : "";
-    if (!window.confirm(`Delete “${pin.label}”${scopeCopy}?`)) return;
-    ["guest", "staff"].forEach((viewName) => {
-      ["sep30", "oct1", "oct2"].forEach((dateName) => {
-        if (customItems[viewName]?.[dateName]) customItems[viewName][dateName] = customItems[viewName][dateName].filter((item) => item.key !== selectedKey);
-        if (overrides[viewName]?.[dateName]) delete overrides[viewName][dateName][selectedKey];
-      });
-    });
-    const deletedLabel = pin.label;
-    selectedKey = "";
-    persistDraft("Item deleted");
-    render();
-    showToast(`${deletedLabel} deleted.`);
-  }
-
   function mergedMapData() {
     const merged = JSON.parse(JSON.stringify(data));
-    ["guest", "staff"].forEach((viewName) => {
-      Object.entries(data[viewName]).forEach(([dateName, originalPage]) => {
-        const pageOverrides = overrideScope(viewName, dateName);
+    VIEWS.forEach((viewName) => {
+      Object.keys(data[viewName]).forEach((dateName) => {
         const mergedPage = merged[viewName][dateName];
-        mergedPage.pins.push(...JSON.parse(JSON.stringify(customScope(viewName, dateName))));
-        mergedPage.route = originalPage.route.map((point) => {
-          const linkedPin = originalPage.pins.find((pin) => !pin.listOnly && pin.x === point[0] && pin.y === point[1]);
-          if (!linkedPin) return point;
-          const adjustment = pageOverrides[linkedPin.key] || {};
-          return [Number.isFinite(adjustment.x) ? adjustment.x : linkedPin.x, Number.isFinite(adjustment.y) ? adjustment.y : linkedPin.y];
-        });
-        mergedPage.pins.forEach((pin) => {
-          const adjustment = pageOverrides[pin.key];
-          if (!adjustment) return;
-          if (Number.isFinite(adjustment.x)) pin.x = adjustment.x;
-          if (Number.isFinite(adjustment.y)) pin.y = adjustment.y;
-          if (adjustment.side) pin.side = adjustment.side;
+        mergedPage.route = effectiveRoute(viewName, dateName).map((point) => [...point]);
+        mergedPage.pins = effectivePins(viewName, dateName).map((pin) => {
+          const output = { ...pin };
+          delete output.edited;
+          delete output.deleted;
+          return output;
         });
       });
     });
@@ -540,9 +766,9 @@
 
   function downloadPublicData() {
     const snapshot = confirmedSnapshot();
-    const publicData = { meta: snapshot.meta, guest: snapshot.guest };
+    const publicData = { meta: snapshot.meta, guest: snapshot.guest, staff: snapshot.staff };
     downloadBlob(`window.VENUE_MAP_DATA = ${JSON.stringify(publicData, null, 2)};\n`, "text/javascript;charset=utf-8", "map-data.js");
-    showToast("Public map data downloaded. Replace /assets/map-data.js on the server.");
+    showToast("Map data downloaded (Guest + Staff). Replace /assets/map-data.js on the server.");
   }
 
   async function imageAsDataUrl(url) {
@@ -703,7 +929,17 @@
   viewButtons.forEach((button) => button.addEventListener("click", () => setView(button.dataset.viewSwitch)));
   editToggle.addEventListener("click", () => setEditing(!editing));
   flipLabel.addEventListener("click", flipSelectedLabel);
-  deleteItem.addEventListener("click", deleteSelectedCustomItem);
+  deleteItem.addEventListener("click", () => { if (selectedKey) requestDeleteItem(selectedKey); });
+  editItemButton.addEventListener("click", () => { if (selectedKey) openEditItemDialog(selectedKey); });
+  restoreItems.addEventListener("click", restoreRemovedItems);
+  confirmAccept.addEventListener("click", () => {
+    const action = pendingConfirm;
+    pendingConfirm = null;
+    confirmDialog.close();
+    if (typeof action === "function") action();
+  });
+  document.getElementById("confirm-cancel").addEventListener("click", () => { pendingConfirm = null; confirmDialog.close(); });
+  confirmDialog.addEventListener("close", () => { pendingConfirm = null; });
   document.getElementById("add-map-item").addEventListener("click", openAddItemDialog);
   document.getElementById("cancel-add-item").addEventListener("click", () => addItemDialog.close());
   addItemForm.addEventListener("submit", addCustomMapItem);
@@ -712,7 +948,7 @@
   document.getElementById("auto-arrange").addEventListener("click", () => { autoArrangeLabels(); showToast("Labels re-arranged to minimize overlap."); });
   document.getElementById("preview-public").addEventListener("click", () => {
     window.localStorage.setItem(PUBLISHED_KEY, JSON.stringify(mergedMapData()));
-    window.open("../index.html?preview=1", "_blank", "noopener");
+    window.open(view === "staff" ? "../staff/index.html?preview=1" : "../index.html?preview=1", "_blank", "noopener");
   });
   document.getElementById("confirm-version").addEventListener("click", confirmVersion);
   document.getElementById("download-public-data").addEventListener("click", downloadPublicData);

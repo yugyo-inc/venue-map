@@ -56,7 +56,7 @@
       </div>
       <div class="title-row">
         <div><p class="eyebrow">INTERNAL POSITION CALIBRATION</p><h1 id="audience-title">GUEST MAP</h1></div>
-        <p class="theme-line">Drag pins into place. Labels move automatically to preserve legibility.</p>
+        <p class="theme-line">Drag pins into place, edit or reorder items, and remove what is not needed. Labels reflow automatically.</p>
       </div>
     </header>
     <nav class="date-nav" aria-label="Event date">
@@ -74,7 +74,9 @@
             <div class="editor-controls" aria-label="Position controls">
               <button class="editor-button is-primary" id="edit-toggle" type="button">Finish adjusting</button>
               <button class="editor-button" id="flip-label" type="button" disabled>Prefer other side</button>
-              <button class="editor-button is-danger" id="delete-item" type="button" disabled>Delete added item</button>
+              <button class="editor-button" id="edit-item" type="button" disabled>Edit item</button>
+              <button class="editor-button is-danger" id="delete-item" type="button" disabled>Delete item</button>
+              <button class="editor-button" id="restore-items" type="button" disabled>Restore removed</button>
               <button class="editor-button" id="reset-date" type="button">Reset this date</button>
             </div>
             <div class="zoom-controls" aria-label="Map zoom controls">
@@ -87,7 +89,7 @@
         </div>
         <div class="editor-strip" id="editor-strip" role="status" aria-live="polite">
           <span class="editor-badge">EDIT MODE</span>
-          <p><strong id="editor-selection">Drag a numbered pin to adjust its position.</strong><span>Arrow keys: fine adjustment · Shift + arrow: larger step</span></p>
+          <p><strong id="editor-selection">Select an item to drag, edit, reorder or delete it.</strong><span>Arrow keys: fine adjustment · Shift + arrow: larger step · ▲▼ in the list: change order</span></p>
           <output id="editor-coordinates">No pin selected</output>
         </div>
         <div class="map-frame" id="map-frame">
@@ -105,16 +107,16 @@
       </section>
       <aside class="detail-panel">
         <div class="notice"><p class="notice-label">CURRENT OPERATION NOTE</p><p id="notice-text"></p></div>
-        <div class="detail-heading"><h3>SELECT A PIN</h3><span>Then drag or nudge</span></div>
+        <div class="detail-heading"><h3>MAP ITEMS</h3><span>Drag · edit · reorder · delete</span></div>
         <ol class="destination-list" id="destination-list"></ol>
       </aside>
     </main>
-    <p class="source-row"><strong>Draft workflow:</strong> “Confirm version” freezes the current map in this browser. Download the public data file and upload it with the HTML package so visitors see the confirmed version.</p>
+    <p class="source-row"><strong>Draft workflow:</strong> “Confirm version” freezes the current Guest and Staff maps in this browser. Download the data file and replace <code>/assets/map-data.js</code> on the server so <code>/</code> and <code>/staff/</code> show the confirmed version.</p>
   </div>
 
   <dialog class="publish-dialog item-dialog" id="add-item-dialog">
     <form class="dialog-body" id="add-item-form">
-      <h2>ADD MAP ITEM</h2>
+      <h2 id="item-dialog-title">ADD MAP ITEM</h2>
       <p id="add-item-context">Add a new pin to the current map.</p>
       <div class="item-form-grid">
         <label class="dialog-field dialog-field-wide">Item name
@@ -132,7 +134,7 @@
             <option value="muted">Reference only</option>
           </select>
         </label>
-        <label class="dialog-field">Add to
+        <label class="dialog-field" id="item-scope-field">Add to
           <select name="scope">
             <option value="current">Current map and date</option>
             <option value="both-date">Guest + Staff for this date</option>
@@ -142,19 +144,31 @@
         </label>
         <label class="dialog-check dialog-field-wide"><input name="tbc" type="checkbox"> Mark as TBC</label>
       </div>
-      <p class="dialog-step">The new pin appears near the centre of the map. Drag it to the exact venue position; its callout will reflow automatically.</p>
+      <p class="dialog-step" id="item-step">The new pin appears near the centre of the map. Drag it to the exact venue position; its callout will reflow automatically.</p>
       <div class="dialog-actions">
         <button class="rail-button" id="cancel-add-item" type="button">Cancel</button>
-        <button class="rail-button is-add" type="submit">Add item</button>
+        <button class="rail-button is-add" id="item-submit" type="submit">Add item</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog class="publish-dialog confirm-dialog" id="confirm-dialog">
+    <div class="dialog-body">
+      <h2 id="confirm-title">CONFIRM</h2>
+      <p id="confirm-text"></p>
+      <div id="confirm-scope" hidden></div>
+      <div class="dialog-actions">
+        <button class="rail-button" id="confirm-cancel" type="button">Cancel</button>
+        <button class="rail-button is-danger" id="confirm-accept" type="button">Confirm</button>
+      </div>
+    </div>
   </dialog>
 
   <dialog class="publish-dialog" id="publish-dialog">
     <div class="dialog-body">
       <h2>VERSION CONFIRMED</h2>
       <p>The current Guest and Staff positions are locked as the confirmed browser snapshot.</p>
-      <p class="dialog-step"><strong>For the Public URL:</strong> download <code>map-data.js</code> and replace <code>/assets/map-data.js</code> on the server. Staff data is excluded from this file.</p>
+      <p class="dialog-step"><strong>For the Public URLs:</strong> download <code>map-data.js</code> and replace <code>/assets/map-data.js</code> on the server. The file feeds both the Guest map (<code>/</code>) and the Staff map (<code>/staff/</code>).</p>
       <div class="dialog-actions">
         <button class="rail-button" id="close-dialog" type="button">Close</button>
         <button class="rail-button" id="download-public-data" type="button">Download public data</button>
