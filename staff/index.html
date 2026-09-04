@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1F296A">
+  <meta name="description" content="Staff venue map for Colive Fukuoka 2026 at THE LUIGANS Spa & Resort.">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <title>Staff Venue Map · Colive Fukuoka 2026</title>
+  <link rel="icon" href="../favicon.ico" sizes="32x32">
+  <link rel="icon" type="image/png" href="../favicon.png">
+  <link rel="apple-touch-icon" href="../favicon.png">
+  <link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body data-view="staff" data-audience="staff" data-default-date="sep30" data-public="true">
+  <header class="site-header">
+    <div class="brand-row">
+      <div class="brand-lockup">
+        <img class="brand-mark" src="../assets/colive-fukuoka-mark.png" alt="Colive Fukuoka">
+        <div><p class="brand-kicker">Colive Fukuoka 2026 · Staff Venue Map</p><p class="brand-venue">THE LUIGANS Spa & Resort · Uminonakamichi, Fukuoka</p></div>
+      </div>
+      <nav class="view-switch" aria-label="Map actions">
+        <span class="public-status is-staff">STAFF MAP · INTERNAL</span>
+        <button class="print-button" id="print-map" type="button">Print</button>
+      </nav>
+    </div>
+    <div class="title-row">
+      <div><p class="eyebrow">OPERATIONS · INTERNAL USE</p><h1>STAFF MAP</h1></div>
+      <p class="theme-line">Back-of-house positions, green rooms and staff access for each event day.</p>
+    </div>
+  </header>
+  <nav class="date-nav" aria-label="Event date">
+    <div class="date-tabs" role="tablist">
+      <button class="date-tab" role="tab" data-date="sep30">SEP 30<span>WORLD NOMAD CONFERENCE + PARTY</span></button>
+      <button class="date-tab" role="tab" data-date="oct1">OCT 01<span>IKIGAI ACADEMY · DAY 1</span></button>
+      <button class="date-tab" role="tab" data-date="oct2">OCT 02<span>IKIGAI ACADEMY · DAY 2</span></button>
+    </div>
+  </nav>
+  <main class="workspace">
+    <section class="map-card" aria-labelledby="map-title">
+      <div class="map-heading">
+        <div><span class="date-stamp" id="date-stamp"></span><h2 id="map-title"></h2><p id="map-subtitle"></p></div>
+        <div class="zoom-controls" aria-label="Map zoom controls">
+          <button class="icon-button" id="zoom-out" type="button" aria-label="Zoom out">−</button>
+          <span class="zoom-status" id="zoom-status" aria-live="polite">100%</span>
+          <button class="icon-button" id="zoom-in" type="button" aria-label="Zoom in">+</button>
+          <button class="icon-button" id="zoom-reset" type="button" aria-label="Reset zoom">↺</button>
+        </div>
+      </div>
+      <div class="map-frame" id="map-frame">
+        <div class="map-stage" id="map-stage">
+          <img class="floor-map" id="floor-map" src="../assets/luigans-floor-map.png" alt="First-floor plan of THE LUIGANS Spa & Resort">
+          <svg class="route-layer" viewBox="0 0 2046 1447" aria-hidden="true">
+            <defs><marker id="route-arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#EB6100" opacity=".3"/></marker></defs>
+            <path class="route-halo" id="route-halo"></path>
+            <path class="route-line" id="route-path" marker-end="url(#route-arrow)"></path>
+          </svg>
+          <div class="pin-layer" id="pin-layer"></div>
+        </div>
+      </div>
+      <div class="legend" aria-label="Map legend"><span><i class="l-route"></i>Guide sequence</span><span><i class="l-destination"></i>Programme</span><span><i></i>Service</span><span><i class="l-staff"></i>Staff / green room</span></div>
+    </section>
+    <aside class="detail-panel">
+      <div class="notice"><p class="notice-label">OPERATIONAL PRIORITY</p><p id="notice-text"></p></div>
+      <div class="detail-heading"><h3>STAFF POSITIONS</h3><span>Tap to locate</span></div>
+      <ol class="destination-list" id="destination-list"></ol>
+    </aside>
+  </main>
+  <p class="source-row"><strong>Internal:</strong> Do not distribute this map to guests. Items marked TBC require final venue confirmation.</p>
+  <script src="../assets/map-data.js"></script>
+  <script src="../assets/public-map.js"></script>
+</body>
+</html>
