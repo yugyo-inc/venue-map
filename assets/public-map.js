@@ -1,11 +1,12 @@
 (function () {
   const PREVIEW_KEY = "colive-fukuoka:venue-map-published:v2";
   const params = new URLSearchParams(window.location.search);
+  const audience = document.body.dataset.audience === "staff" ? "staff" : "guest";
   let data = window.VENUE_MAP_DATA;
   if (params.get("preview") === "1") {
     try {
       const preview = JSON.parse(window.localStorage.getItem(PREVIEW_KEY) || "null");
-      if (preview?.guest) data = preview;
+      if (preview?.[audience]) data = preview;
     } catch (error) {
       console.warn("Preview data could not be loaded.", error);
     }
@@ -38,7 +39,8 @@
   const rectFrom = (left, top, width, height) => ({ left, top, right: left + width, bottom: top + height, width, height });
 
   function page() {
-    return data.guest[activeDate];
+    const pages = data[audience] || data.guest;
+    return pages[activeDate] || pages.sep30;
   }
 
   function routePathFrom(points) {
